@@ -20,18 +20,25 @@ public class ReviewsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ReviewDto>>> GetReviews(CancellationToken cancellationToken)
     {
-        var list = await _db.Reviews
-            .OrderByDescending(r => r.CreatedAt)
-            .Select(r => new ReviewDto
-            {
-                Id = r.Id,
-                AuthorName = r.AuthorName,
-                Rating = r.Rating,
-                Comment = r.Comment,
-                CreatedAt = r.CreatedAt
-            })
-            .ToListAsync(cancellationToken);
-        return Ok(list);
+        try
+        {
+            var list = await _db.Reviews
+                .OrderByDescending(r => r.CreatedAt)
+                .Select(r => new ReviewDto
+                {
+                    Id = r.Id,
+                    AuthorName = r.AuthorName,
+                    Rating = r.Rating,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt
+                })
+                .ToListAsync(cancellationToken);
+            return Ok(list);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Failed to load reviews.", detail = ex.Message });
+        }
     }
 
     [HttpPost]
