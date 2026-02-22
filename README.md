@@ -36,15 +36,7 @@ Un site web modern pentru servicii de reparații PC, construit cu Vue.js 3 și T
 3. **Accesează site-ul:**
    - Deschide browserul la `http://localhost`
 
-### Opțiunea 2: Deployment automat
-
-1. **Rulează scriptul de deployment:**
-   ```bash
-   chmod +x deploy.sh
-   ./deploy.sh
-   ```
-
-### Opțiunea 3: Dezvoltare locală
+### Opțiunea 2: Dezvoltare locală
 
 1. **Instalează dependențele:**
    ```bash
@@ -101,20 +93,27 @@ Site-ul este optimizat pentru hosting pe servere Linux cu Docker. Poate fi hosta
 
 ```
 PcMaintenance/
-├── pcmaintenance.client/     # Frontend Vue.js
+├── PcMaintenance.Server/    # Backend ASP.NET Core (API, EF, migrații)
+│   ├── Controllers/         # ex. ReviewsController
+│   ├── Data/                # AppDbContext, entități
+│   └── Migrations/
+├── pcmaintenance.client/    # Frontend Vue.js (doar SPA)
 │   ├── src/
-│   │   ├── components/       # Componente Vue
-│   │   ├── views/           # Pagini
-│   │   └── assets/          # CSS, imagini
+│   │   ├── components/
+│   │   ├── views/
+│   │   └── assets/
 │   ├── package.json
 │   └── vite.config.ts
-├── Dockerfile               # Configurație Docker
-├── docker-compose.yml      # Orchestrare containere
-├── nginx.conf              # Configurație Nginx
-└── deploy.sh               # Script deployment
+├── Dockerfile
+├── docker-compose.yml
+└── nginx.conf
 ```
 
 ## 🔧 Configurare
+
+### Conexiune la baza de date (PostgreSQL)
+
+Deploy-ul se face doar prin workflow-ul GitHub Actions (push pe `main` sau trigger manual). Connection string-ul este hardcodat în workflow și în docker-compose. Pentru push/pull pe Docker Hub, în GitHub (Settings → Secrets and variables → Actions) setează **DOCKERHUB_USERNAME** și **DOCKERHUB_TOKEN** (Personal Access Token de pe Docker Hub).
 
 ### Variabile de mediu
 

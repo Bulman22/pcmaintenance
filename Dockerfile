@@ -1,34 +1,25 @@
-# Build stage
-FROM node:20-alpine as build
-
+# Stage 1: Build Vue frontend
+FROM node:20-alpine AS frontend-build
 WORKDIR /app
-
-# Copy package files
-COPY pcmaintenance.client/ClientApp/package*.json ./
-
-# Clean install dependencies (including dev dependencies for build)
-RUN rm -rf node_modules package-lock.json && \
-    npm install --legacy-peer-deps && \
-    npm rebuild esbuild
-
-# Copy source code
-COPY pcmaintenance.client/ClientApp/ ./
-
-# Build the application
+COPY pcmaintenance.client/package*.json ./
+RUN npm ci
+COPY pcmaintenance.client/ .
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Stage 2: Build and publish PcMaintenance.Server
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS publish
+WORKDIR /src
+COPY PcMaintenance.sln .
+COPY PcMaintenance.Server/PcMaintenance.Server.csproj PcMaintenance.Server/
+RUN dotnet restore PcMaintenance.Server
+COPY PcMaintenance.Server/ PcMaintenance.Server/
+RUN dotnet publish PcMaintenance.Server -c Release -o /out --no-restore
+COPY --from=frontend-build /app/dist /out/dist
 
-# Copy built files from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
-
-# Expose port 80
+# Stage 3: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=publish /out .
+ENV ASPNETCORE_URLS=http://+:80
 EXPOSE 80
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
-
+ENTRYPOINT ["dotnet", "PcMaintenance.Server.dll"]
