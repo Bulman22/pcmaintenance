@@ -1,6 +1,7 @@
 name: Deploy
 
-# Build image, push to Docker Hub (bulman22/pcmaintenance-web), then migrate + deploy on runner with label deployment.
+# Build image, push to Docker Hub, then deploy on runner with label deployment.
+# Migrațiile se aplică la pornirea containerului (Program.cs Database.Migrate()) – runner-ul nu are acces la DB.
 # Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN. Connection string hardcodat.
 on:
   push:
@@ -25,30 +26,8 @@ jobs:
           docker build -t bulman22/pcmaintenance-web:latest .
           docker push bulman22/pcmaintenance-web:latest
 
-  migrate:
-    needs: build-push
-    runs-on: [self-hosted, deployment]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Install dotnet-ef
-        run: dotnet tool install -g dotnet-ef
-
-      - name: Apply migrations
-        env:
-          CONNECTION_STRING: "Host=192.168.0.101;Port=5432;Username=postgres;Password=5wagyolo;Database=postgres"
-        run: |
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          dotnet ef database update --project PcMaintenance.Server --connection "$CONNECTION_STRING"
-
   deploy:
-    needs: migrate
+    needs: build-push
     runs-on: [self-hosted, deployment]
     steps:
       - name: Checkout
