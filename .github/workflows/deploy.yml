@@ -40,12 +40,15 @@ jobs:
       - name: Install dotnet-ef
         run: dotnet tool install -g dotnet-ef
 
+      - name: Restore .NET
+        run: dotnet restore PcMaintenance.Server
+
       - name: Apply migrations
         env:
           CONNECTION_STRING: "Host=192.168.0.101;Port=5432;Username=postgres;Password=5wagyolo;Database=postgres"
         run: |
           export PATH="$PATH:$HOME/.dotnet/tools"
-          dotnet ef database update --project PcMaintenance.Server --connection "$CONNECTION_STRING"
+          dotnet ef database update --project PcMaintenance.Server --connection "$CONNECTION_STRING" --no-build
 
   deploy:
     needs: migrate
