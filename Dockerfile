@@ -13,14 +13,13 @@ COPY PcMaintenance.sln .
 COPY PcMaintenance.Server/PcMaintenance.Server.csproj PcMaintenance.Server/
 RUN dotnet restore PcMaintenance.Server
 COPY PcMaintenance.Server/ PcMaintenance.Server/
-COPY --from=frontend-build /app/dist /src/frontend-dist
 RUN dotnet publish PcMaintenance.Server -c Release -o /out --no-restore
-RUN cp -r /src/frontend-dist /out/dist
 
-# Stage 3: Runtime
+# Stage 3: Runtime – backend din publish, frontend din frontend-build
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 COPY --from=publish /out .
+COPY --from=frontend-build /app/dist ./dist
 ENV ASPNETCORE_URLS=http://+:80
 EXPOSE 80
 ENTRYPOINT ["dotnet", "PcMaintenance.Server.dll"]
