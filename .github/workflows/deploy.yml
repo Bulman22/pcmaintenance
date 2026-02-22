@@ -2,7 +2,7 @@ name: Deploy
 
 # Build image, push to Docker Hub, then deploy on runner with label deployment.
 # Migrațiile se aplică la pornirea containerului (Program.cs Database.Migrate()) – runner-ul nu are acces la DB.
-# Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN. Connection string hardcodat.
+# Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, DB_CONNECTION_STRING (Host=...;Password=parola_reala;...).
 on:
   push:
     branches: [main]
@@ -39,9 +39,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Create .env for Compose
+        run: |
+          printf 'CONNECTION_STRING=%s\n' '${{ secrets.DB_CONNECTION_STRING }}' > .env
+
       - name: Deploy (pull and up)
-        env:
-          CONNECTION_STRING: "Host=192.168.0.101;Port=5432;Username=postgres;Password=5wagyolo;Database=postgres"
         run: |
           docker compose down
           docker compose pull
