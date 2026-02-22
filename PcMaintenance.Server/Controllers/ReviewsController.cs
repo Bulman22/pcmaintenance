@@ -42,8 +42,11 @@ public class ReviewsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ReviewDto>> PostReview([FromBody] CreateReviewRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ReviewDto>> PostReview([FromBody] CreateReviewRequest? request, CancellationToken cancellationToken)
     {
+        if (request == null)
+            return BadRequest(new { error = "Request body is required." });
+
         if (string.IsNullOrWhiteSpace(request.AuthorName))
             return BadRequest(new { error = "AuthorName is required." });
         if (request.Rating < 1 || request.Rating > 5)
@@ -51,24 +54,31 @@ public class ReviewsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Comment))
             return BadRequest(new { error = "Comment is required." });
 
-        var review = new Review
+        try
         {
-            AuthorName = request.AuthorName.Trim(),
-            Rating = request.Rating,
-            Comment = request.Comment.Trim(),
-            CreatedAt = DateTime.UtcNow
-        };
-        _db.Reviews.Add(review);
-        await _db.SaveChangesAsync(cancellationToken);
+            var review = new Review
+            {
+                AuthorName = request.AuthorName.Trim(),
+                Rating = request.Rating,
+                Comment = request.Comment.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+            _db.Reviews.Add(review);
+            await _db.SaveChangesAsync(cancellationToken);
 
-        return StatusCode(201, new ReviewDto
+            return StatusCode(201, new ReviewDto
+            {
+                Id = review.Id,
+                AuthorName = review.AuthorName,
+                Rating = review.Rating,
+                Comment = review.Comment,
+                CreatedAt = review.CreatedAt
+            });
+        }
+        catch (Exception ex)
         {
-            Id = review.Id,
-            AuthorName = review.AuthorName,
-            Rating = review.Rating,
-            Comment = review.Comment,
-            CreatedAt = review.CreatedAt
-        });
+            return StatusCode(500, new { error = "Failed to save review.", detail = ex.Message });
+        }
     }
 }
 
