@@ -23,7 +23,7 @@
           style="scrollbar-width: none; -ms-overflow-style: none;"
         >
           <div
-            v-for="(review, index) in reviews"
+            v-for="review in reviews"
             :key="review.id"
             class="flex-shrink-0 w-[min(100%,320px)] sm:w-96 snap-center"
           >
