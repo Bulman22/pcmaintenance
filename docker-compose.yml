@@ -10,4 +10,4 @@ services:
     restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=${CONNECTION_STRING:-Host=192.168.0.101;Port=5432;Username=postgres;Password=5wagyolo;Database=postgres}
+      - ConnectionStrings__DefaultConnection=${CONNECTION_STRING:-Host=192.168.0.101;Port=5432;Username=postgres;Password=changeme123456789;Database=postgres}
