@@ -1,0 +1,12 @@
+.git
+.gitignore
+.github
+**/node_modules
+**/dist
+**/bin
+**/obj
+**/.vs
+**/*.user
+*.md
+.env
+.env.*
