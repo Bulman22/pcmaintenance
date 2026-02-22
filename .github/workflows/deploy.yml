@@ -28,7 +28,7 @@ jobs:
 
   deploy:
     needs: build-push
-    runs-on: [self-hosted, deployment]
+    runs-on: deployment
     steps:
       - name: Checkout
         uses: actions/checkout@v4
