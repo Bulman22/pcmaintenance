@@ -13,8 +13,9 @@ COPY PcMaintenance.sln .
 COPY PcMaintenance.Server/PcMaintenance.Server.csproj PcMaintenance.Server/
 RUN dotnet restore PcMaintenance.Server
 COPY PcMaintenance.Server/ PcMaintenance.Server/
+COPY --from=frontend-build /app/dist /src/frontend-dist
 RUN dotnet publish PcMaintenance.Server -c Release -o /out --no-restore
-COPY --from=frontend-build /app/dist /out/dist
+RUN cp -r /src/frontend-dist /out/dist
 
 # Stage 3: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
