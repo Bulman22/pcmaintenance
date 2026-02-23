@@ -1,3 +1,4 @@
+using AspNetCoreRateLimit;
 using Microsoft.EntityFrameworkCore;
 using PcMaintenance.Server.Data;
 
@@ -8,14 +9,25 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     WebRootPath = "dist"
 });
 
+// Rate limiting (per IP); config in appsettings.json -> IpRateLimiting
+builder.Services.AddMemoryCache();
+builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.AddInMemoryRateLimiting();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 
-// Configure PostgreSQL
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+// Configure DB: InMemory for Testing environment, otherwise PostgreSQL
+if (builder.Environment.IsEnvironment("Testing"))
+    builder.Services.AddDbContext<AppDbContext>(options => options.UseInMemoryDatabase("TestDb"));
+else
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+    builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+}
 
 // Add CORS
 builder.Services.AddCors(options =>
@@ -41,6 +53,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 
 app.UseHttpsRedirection();
+app.UseIpRateLimiting();
 app.UseCors("AllowVueApp");
 app.UseRouting();
 app.MapControllers();
@@ -50,11 +63,14 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapFallbackToFile("index.html");
 
-// Apply EF Core migrations at startup (idempotent; no separate deploy step)
-using (var scope = app.Services.CreateScope())
+// Apply EF Core migrations at startup (idempotent; no separate deploy step); skip in Testing to allow InMemory DB
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.Migrate();
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        context.Database.Migrate();
+    }
 }
 
 app.Run();
