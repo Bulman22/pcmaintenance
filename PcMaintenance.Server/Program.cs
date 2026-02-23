@@ -63,14 +63,11 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapFallbackToFile("index.html");
 
-// Apply EF Core migrations at startup (idempotent; no separate deploy step); skip in Testing to allow InMemory DB
-if (!app.Environment.IsEnvironment("Testing"))
+// Apply EF Core migrations at startup (idempotent; no separate deploy step)
+using (var scope = app.Services.CreateScope())
 {
-    using (var scope = app.Services.CreateScope())
-    {
-        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        context.Database.Migrate();
-    }
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    context.Database.Migrate();
 }
 
 app.Run();
