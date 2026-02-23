@@ -60,7 +60,7 @@ using (var scope = app.Services.CreateScope())
 
     // Fallback: dacă __EFMigrationsHistory spune "up to date" dar tabelul Reviews lipsește (istoric desincronizat), creăm tabelul
     var reviewsExists = context.Database
-        .SqlQueryRaw<long>("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Reviews'")
+        .SqlQueryRaw<long>("SELECT COUNT(*) AS \"Value\" FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Reviews'")
         .FirstOrDefault();
     if (reviewsExists == 0)
     {
@@ -75,12 +75,12 @@ using (var scope = app.Services.CreateScope())
             );
             """);
         var historyExists = context.Database
-            .SqlQueryRaw<long>("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '__EFMigrationsHistory'")
+            .SqlQueryRaw<long>("SELECT COUNT(*) AS \"Value\" FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '__EFMigrationsHistory'")
             .FirstOrDefault();
         if (historyExists != 0)
         {
             var migrationRow = context.Database
-                .SqlQueryRaw<long>("SELECT COUNT(*) FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = '20250222000000_InitialCreate'")
+                .SqlQueryRaw<long>("SELECT COUNT(*) AS \"Value\" FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = '20250222000000_InitialCreate'")
                 .FirstOrDefault();
             if (migrationRow == 0)
                 context.Database.ExecuteSqlRaw("""
