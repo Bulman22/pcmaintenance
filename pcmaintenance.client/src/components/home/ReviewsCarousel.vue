@@ -18,15 +18,16 @@
       </div>
       <div v-else class="relative overflow-hidden">
         <div
-          ref="scrollRef"
-          class="flex gap-6 overflow-x-auto pb-4 scrollbar-hide carousel-track"
-          :class="{ 'carousel-paused': isPaused }"
-          style="scrollbar-width: none; -ms-overflow-style: none;"
+          class="carousel-viewport"
           @mouseenter="pauseAutoPlay"
           @mouseleave="resumeAutoPlay"
         >
-          <template v-for="(review, idx) in displayReviews" :key="`${review.id}-${idx}`">
-            <div class="flex-shrink-0 w-[min(100%,320px)] sm:w-96 review-card">
+          <div
+            ref="trackRef"
+            class="flex gap-6 pb-4 carousel-track"
+          >
+            <template v-for="(review, idx) in displayReviews" :key="`${review.id}-${idx}`">
+              <div class="flex-shrink-0 w-[min(100%,320px)] sm:w-96 review-card">
               <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 h-full flex flex-col">
                 <div class="flex items-center gap-1 mb-3">
                   <span
@@ -44,6 +45,7 @@
               </div>
             </div>
           </template>
+          </div>
         </div>
         <button
           v-if="reviews.length > 1"
@@ -69,32 +71,38 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { getReviews } from '@/api/reviews'
 import type { Review } from '@/types/review'
 
 const CARD_WIDTH = 320
 const GAP = 24
 const CARD_WIDTH_PLUS_GAP = CARD_WIDTH + GAP
-/** Scroll speed: px per second (slow pace) */
-const SCROLL_SPEED_PX_PER_S = 24
+/** Slow speed so text is readable; px per second */
+const SCROLL_SPEED_PX_PER_S = 18
 
 const props = defineProps<{ refresh?: number }>()
 watch(() => props.refresh, () => load(), { flush: 'post' })
 
 const reviews = ref<Review[]>([])
 const loading = ref(true)
-const scrollRef = ref<HTMLElement | null>(null)
+const trackRef = ref<HTMLElement | null>(null)
 const isPaused = ref(false)
-/** Duplicate reviews so we can loop seamlessly (3 copies for long enough track) */
+/** Current scroll position in px; updated in rAF to avoid Vue reactivity on every frame */
+let scrollOffsetPx = 0
+/** Duplicate reviews so we can loop seamlessly */
 const displayReviews = computed(() => {
   const list = reviews.value
   if (list.length === 0) return []
   return [...list, ...list, ...list]
 })
 
+function getOneSetWidthPx() {
+  return reviews.value.length * CARD_WIDTH_PLUS_GAP
+}
+
 let animationFrameId: number | null = null
-let lastScrollTime = 0
+let lastTime = 0
 
 function formatDate(iso: string): string {
   try {
@@ -108,31 +116,40 @@ function formatDate(iso: string): string {
   }
 }
 
+function applyTransform() {
+  const el = trackRef.value
+  if (el) el.style.transform = `translate3d(-${scrollOffsetPx}px, 0, 0)`
+}
+
 function scroll(direction: number) {
-  const el = scrollRef.value
-  if (!el) return
-  el.scrollBy({ left: direction * CARD_WIDTH_PLUS_GAP, behavior: 'smooth' })
+  if (reviews.value.length <= 1) return
+  const step = CARD_WIDTH_PLUS_GAP
+  const w = getOneSetWidthPx()
+  scrollOffsetPx = (scrollOffsetPx + direction * step + w) % w
+  if (scrollOffsetPx < 0) scrollOffsetPx += w
+  applyTransform()
 }
 
 function tick(timestamp: number) {
-  const el = scrollRef.value
-  if (!el || isPaused.value || reviews.value.length <= 1) {
+  if (isPaused.value || reviews.value.length <= 1) {
+    lastTime = 0
     animationFrameId = requestAnimationFrame(tick)
     return
   }
-  const dt = lastScrollTime ? (timestamp - lastScrollTime) / 1000 : 0
-  lastScrollTime = timestamp
-  const oneSetWidth = reviews.value.length * CARD_WIDTH_PLUS_GAP
-  el.scrollLeft += SCROLL_SPEED_PX_PER_S * dt
-  if (el.scrollLeft >= oneSetWidth) {
-    el.scrollLeft -= oneSetWidth
-  }
+  const dt = lastTime ? (timestamp - lastTime) / 1000 : 0
+  lastTime = timestamp
+  const w = getOneSetWidthPx()
+  scrollOffsetPx += SCROLL_SPEED_PX_PER_S * dt
+  while (scrollOffsetPx >= w) scrollOffsetPx -= w
+  applyTransform()
   animationFrameId = requestAnimationFrame(tick)
 }
 
 function startAutoPlay() {
   if (reviews.value.length <= 1) return
-  lastScrollTime = 0
+  const el = trackRef.value
+  if (el) el.style.willChange = 'transform'
+  lastTime = 0
   if (!animationFrameId) {
     animationFrameId = requestAnimationFrame(tick)
   }
@@ -140,12 +157,17 @@ function startAutoPlay() {
 
 function pauseAutoPlay() {
   isPaused.value = true
+  const el = trackRef.value
+  if (el) el.style.willChange = 'auto'
 }
 
 function resumeAutoPlay() {
   isPaused.value = false
   if (reviews.value.length > 1 && animationFrameId === null) {
-    startAutoPlay()
+    const el = trackRef.value
+    if (el) el.style.willChange = 'transform'
+    lastTime = 0
+    animationFrameId = requestAnimationFrame(tick)
   }
 }
 
@@ -155,12 +177,15 @@ async function load() {
     cancelAnimationFrame(animationFrameId)
     animationFrameId = null
   }
+  scrollOffsetPx = 0
   try {
     reviews.value = await getReviews()
   } catch {
     reviews.value = []
   } finally {
     loading.value = false
+    await nextTick()
+    applyTransform()
     if (reviews.value.length > 1) {
       startAutoPlay()
     }
@@ -177,7 +202,12 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+.carousel-viewport {
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.carousel-track {
+  /* transform animated in JS for smooth GPU-accelerated scroll */
+  backface-visibility: hidden;
 }
 </style>

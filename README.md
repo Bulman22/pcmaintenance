@@ -36,21 +36,28 @@ Un site web modern pentru servicii de reparații PC, construit cu Vue.js 3 și T
 3. **Accesează site-ul:**
    - Deschide browserul la `http://localhost`
 
-### Opțiunea 2: Dezvoltare locală
+### Opțiunea 2: Dezvoltare locală (API + Vue împreună)
 
-1. **Instalează dependențele:**
+1. **Din rădăcina proiectului** instalează dependențele și pornește backend + frontend:
    ```bash
-   cd pcmaintenance.client
    npm install
-   ```
-
-2. **Rulează serverul de dezvoltare:**
-   ```bash
+   cd pcmaintenance.client && npm install && cd ..
    npm run dev
    ```
+   Aceasta pornește API-ul .NET pe `http://localhost:55001` și Vue (Vite) pe `http://localhost:61232`, cu proxy pentru `/api` către backend.
 
-3. **Accesează site-ul:**
-   - Deschide browserul la `https://localhost:61232`
+2. **Accesează site-ul:**
+   - Deschide browserul la `http://localhost:61232` (sau portul afișat de Vite).
+
+**Doar frontend** (dacă API-ul rulează deja):
+   ```bash
+   cd pcmaintenance.client && npm run dev
+   ```
+
+**Doar backend:**
+   ```bash
+   cd PcMaintenance.Server && dotnet run --urls http://localhost:55001
+   ```
 
 ## 🐳 Docker
 
