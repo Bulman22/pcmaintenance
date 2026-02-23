@@ -39,6 +39,9 @@ jobs:
       - name: Build backend
         run: dotnet build PcMaintenance.Server --no-restore -c Release
 
+      - name: Run .NET tests
+        run: dotnet test PcMaintenance.Server.Tests -c Release
+
       - name: Lint frontend
         run: |
           cd pcmaintenance.client
