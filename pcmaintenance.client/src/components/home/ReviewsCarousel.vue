@@ -21,6 +21,8 @@
           ref="scrollRef"
           class="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth pb-4 scrollbar-hide"
           style="scrollbar-width: none; -ms-overflow-style: none;"
+          @mouseenter="pauseAutoPlay"
+          @mouseleave="resumeAutoPlay"
         >
           <div
             v-for="review in reviews"
@@ -68,9 +70,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { getReviews } from '@/api/reviews'
 import type { Review } from '@/types/review'
+
+const CARD_WIDTH = 320
+const GAP = 24
+const CARD_WIDTH_PLUS_GAP = CARD_WIDTH + GAP
+const AUTO_PLAY_INTERVAL_MS = 7000
 
 const props = defineProps<{ refresh?: number }>()
 watch(() => props.refresh, () => load(), { flush: 'post' })
@@ -78,6 +85,7 @@ watch(() => props.refresh, () => load(), { flush: 'post' })
 const reviews = ref<Review[]>([])
 const loading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
+let autoPlayTimer: ReturnType<typeof setInterval> | null = null
 
 function formatDate(iso: string): string {
   try {
@@ -94,22 +102,58 @@ function formatDate(iso: string): string {
 function scroll(direction: number) {
   const el = scrollRef.value
   if (!el) return
-  const cardWidth = 320 + 24
-  el.scrollBy({ left: direction * cardWidth, behavior: 'smooth' })
+  el.scrollBy({ left: direction * CARD_WIDTH_PLUS_GAP, behavior: 'smooth' })
+}
+
+function advanceSlide() {
+  const el = scrollRef.value
+  if (!el || reviews.value.length <= 1) return
+  const currentIndex = Math.round(el.scrollLeft / CARD_WIDTH_PLUS_GAP)
+  const nextIndex = (currentIndex + 1) % reviews.value.length
+  el.scrollTo({ left: nextIndex * CARD_WIDTH_PLUS_GAP, behavior: 'smooth' })
+}
+
+function startAutoPlay() {
+  if (autoPlayTimer) return
+  if (reviews.value.length <= 1) return
+  autoPlayTimer = setInterval(advanceSlide, AUTO_PLAY_INTERVAL_MS)
+}
+
+function pauseAutoPlay() {
+  if (autoPlayTimer) {
+    clearInterval(autoPlayTimer)
+    autoPlayTimer = null
+  }
+}
+
+function resumeAutoPlay() {
+  if (reviews.value.length > 1 && !autoPlayTimer) {
+    startAutoPlay()
+  }
 }
 
 async function load() {
   loading.value = true
+  pauseAutoPlay()
   try {
     reviews.value = await getReviews()
   } catch {
     reviews.value = []
   } finally {
     loading.value = false
+    if (reviews.value.length > 1) {
+      startAutoPlay()
+    }
   }
 }
 
 onMounted(load)
+onUnmounted(() => {
+  if (autoPlayTimer) {
+    clearInterval(autoPlayTimer)
+    autoPlayTimer = null
+  }
+})
 </script>
 
 <style scoped>

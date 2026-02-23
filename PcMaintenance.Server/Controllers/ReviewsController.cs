@@ -47,6 +47,12 @@ public class ReviewsController : ControllerBase
         if (request == null)
             return BadRequest(new { error = "Request body is required." });
 
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        if (!string.IsNullOrWhiteSpace(request.Website))
+            return Ok(new ReviewDto { Id = 0, AuthorName = "", Rating = 0, Comment = "", CreatedAt = DateTime.UtcNow });
+
         if (string.IsNullOrWhiteSpace(request.AuthorName))
             return BadRequest(new { error = "AuthorName is required." });
         if (request.Rating < 1 || request.Rating > 5)
@@ -54,13 +60,33 @@ public class ReviewsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Comment))
             return BadRequest(new { error = "Comment is required." });
 
+        var authorName = request.AuthorName.Trim();
+        var comment = request.Comment.Trim();
+        if (authorName.Length > 200)
+            return BadRequest(new { error = "Numele nu poate depăși 200 de caractere." });
+        if (comment.Length > 2000)
+            return BadRequest(new { error = "Comentariul nu poate depăși 2000 de caractere." });
+
+        var commentNormalized = System.Text.RegularExpressions.Regex.Replace(comment, @"\s+", " ");
+
+        var since = DateTime.UtcNow.AddHours(-24);
+        var recentReviews = await _db.Reviews
+            .Where(r => r.CreatedAt >= since)
+            .Select(r => new { r.AuthorName, r.Comment })
+            .ToListAsync(cancellationToken);
+        var duplicateExists = recentReviews.Any(r =>
+            string.Equals(r.AuthorName, authorName, StringComparison.OrdinalIgnoreCase)
+            && System.Text.RegularExpressions.Regex.Replace(r.Comment, @"\s+", " ") == commentNormalized);
+        if (duplicateExists)
+            return BadRequest(new { error = "O recenzie identică a fost deja trimisă recent." });
+
         try
         {
             var review = new Review
             {
-                AuthorName = request.AuthorName.Trim(),
+                AuthorName = authorName,
                 Rating = request.Rating,
-                Comment = request.Comment.Trim(),
+                Comment = comment,
                 CreatedAt = DateTime.UtcNow
             };
             _db.Reviews.Add(review);
@@ -94,10 +120,13 @@ public class ReviewDto
 public class CreateReviewRequest
 {
     [Required]
+    [MaxLength(200)]
     public string AuthorName { get; set; } = string.Empty;
     [Required]
     [Range(1, 5)]
     public int Rating { get; set; }
     [Required]
+    [MaxLength(2000)]
     public string Comment { get; set; } = string.Empty;
+    public string? Website { get; set; }
 }

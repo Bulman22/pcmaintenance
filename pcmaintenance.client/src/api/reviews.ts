@@ -12,6 +12,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     },
   })
   if (!res.ok) {
+    if (res.status === 429) {
+      throw new Error(
+        'Prea multe recenzii trimise. Poți trimite din nou o recenzie peste aproximativ o oră.'
+      )
+    }
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error((err as { error?: string }).error ?? res.statusText)
   }
