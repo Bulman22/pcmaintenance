@@ -63,9 +63,10 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapFallbackToFile("index.html");
 
-// Apply EF Core migrations at startup (idempotent; no separate deploy step)
-using (var scope = app.Services.CreateScope())
+// Apply EF Core migrations at startup when using PostgreSQL (not in Testing/InMemory)
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     context.Database.Migrate();
 }
