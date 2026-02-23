@@ -1,7 +1,7 @@
 name: Deploy
 
 # Build on self-hosted, deploy on runner with label deployment.
-# Migrațiile se aplică în workflow (step Apply migrations) pe runner-ul deployment, apoi la startup în container.
+# Migrările EF Core se aplică la startup în aplicație (Program.cs: context.Database.Migrate()), nu în pipeline.
 # Secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, DB_CONNECTION_STRING (Host=...;Password=...;...).
 on:
   push:
@@ -61,24 +61,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Install dotnet-ef
-        run: dotnet tool install -g dotnet-ef
-
-      - name: Restore .NET
-        run: dotnet restore PcMaintenance.Server
-
-      - name: Apply migrations
-        env:
-          CONNECTION_STRING: ${{ secrets.DB_CONNECTION_STRING }}
-        run: |
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          dotnet ef database update --project PcMaintenance.Server --connection "$CONNECTION_STRING"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3

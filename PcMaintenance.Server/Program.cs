@@ -1,47 +1,60 @@
 using Microsoft.EntityFrameworkCore;
 using PcMaintenance.Server.Data;
 
-// #region agent log
-var _logPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "debug-4c260c.log"));
-try { File.AppendAllText(_logPath, "{\"sessionId\":\"4c260c\",\"location\":\"Program.cs:start\",\"message\":\"Before CreateBuilder\",\"hypothesisId\":\"A\",\"timestamp\":" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}\n"); } catch { }
-// #endregion
+// Migrări EF Core: se aplică la startup cu Migrate() (nu EnsureCreated()). Connection string din config (env/secrets).
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
     WebRootPath = "dist"
 });
-// #region agent log
-try { File.AppendAllText(_logPath, "{\"sessionId\":\"4c260c\",\"location\":\"Program.cs:after-builder\",\"message\":\"Builder created with WebRootPath=dist\",\"hypothesisId\":\"B\",\"timestamp\":" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}\n"); } catch { }
-// #endregion
 
+// Add services to the container.
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
+
+// Configure PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 
-builder.Services.AddControllers()
-    .AddJsonOptions(o => o.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowVueApp", policy =>
+    {
+        policy.WithOrigins("https://localhost:59404", "https://localhost:59405", "http://localhost:5173")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 var app = builder.Build();
 
+// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
+{
     app.UseDeveloperExceptionPage();
+}
 
 if (!app.Environment.IsDevelopment())
     app.UseHsts();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
-}
-
 app.UseHttpsRedirection();
+app.UseCors("AllowVueApp");
 app.UseRouting();
 app.MapControllers();
 
-// SPA: serve static files from dist (set via UseWebRoot)
+// SPA: serve static files from dist (set via WebRootPath)
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapFallbackToFile("index.html");
+
+// Apply EF Core migrations at startup (idempotent; no separate deploy step)
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    context.Database.Migrate();
+}
 
 app.Run();

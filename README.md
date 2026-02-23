@@ -111,9 +111,20 @@ PcMaintenance/
 
 ## 🔧 Configurare
 
+### Migrări EF Core la deploy
+
+- Folosim **EF Core Migrations** pentru PostgreSQL. Migrările se aplică la **pornirea aplicației**, în `Program.cs`, cu `context.Database.Migrate()` (nu `EnsureCreated()`).
+- **Înainte de deploy:** rulează local când schimbi modelul:
+  ```bash
+  dotnet ef migrations add NumeMigrare --project PcMaintenance.Server
+  ```
+  Nu adăuga migrări direct în pipeline.
+- **La deploy:** nu e nevoie de pas separat; aplicația aplică migrările singură la startup. Asigură-te că doar o instanță pornește primul (sau că `Migrate()` e idempotent).
+- Connection string-ul pentru DB vine mereu din configurare (env / secrets), niciodată hardcodat în cod.
+
 ### Conexiune la baza de date (PostgreSQL)
 
-Deploy-ul se face doar prin workflow-ul GitHub Actions (push pe `main` sau trigger manual). Connection string-ul este hardcodat în workflow și în docker-compose. Pentru push/pull pe Docker Hub, în GitHub (Settings → Secrets and variables → Actions) setează **DOCKERHUB_USERNAME** și **DOCKERHUB_TOKEN** (Personal Access Token de pe Docker Hub).
+Deploy-ul se face prin workflow-ul GitHub Actions (push pe `main` sau trigger manual). Connection string-ul se setează ca secret **DB_CONNECTION_STRING** în GitHub (Settings → Secrets and variables → Actions) și este injectat în container via `.env` (creat în workflow). Pentru Docker Hub: **DOCKERHUB_USERNAME** și **DOCKERHUB_TOKEN**.
 
 ### Variabile de mediu
 
