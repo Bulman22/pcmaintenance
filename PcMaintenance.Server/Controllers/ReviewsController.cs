@@ -47,6 +47,9 @@ public class ReviewsController : ControllerBase
         if (request == null)
             return BadRequest(new { error = "Request body is required." });
 
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         if (!string.IsNullOrWhiteSpace(request.Website))
             return Ok(new ReviewDto { Id = 0, AuthorName = "", Rating = 0, Comment = "", CreatedAt = DateTime.UtcNow });
 
@@ -67,12 +70,13 @@ public class ReviewsController : ControllerBase
         var commentNormalized = System.Text.RegularExpressions.Regex.Replace(comment, @"\s+", " ");
 
         var since = DateTime.UtcNow.AddHours(-24);
-        var recentSameAuthor = await _db.Reviews
-            .Where(r => r.CreatedAt >= since && r.AuthorName.ToLower() == authorName.ToLower())
-            .Select(r => r.Comment)
+        var recentReviews = await _db.Reviews
+            .Where(r => r.CreatedAt >= since)
+            .Select(r => new { r.AuthorName, r.Comment })
             .ToListAsync(cancellationToken);
-        var duplicateExists = recentSameAuthor
-            .Any(c => System.Text.RegularExpressions.Regex.Replace(c, @"\s+", " ") == commentNormalized);
+        var duplicateExists = recentReviews.Any(r =>
+            string.Equals(r.AuthorName, authorName, StringComparison.OrdinalIgnoreCase)
+            && System.Text.RegularExpressions.Regex.Replace(r.Comment, @"\s+", " ") == commentNormalized);
         if (duplicateExists)
             return BadRequest(new { error = "O recenzie identică a fost deja trimisă recent." });
 

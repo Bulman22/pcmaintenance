@@ -9,11 +9,16 @@ using Xunit;
 
 namespace PcMaintenance.Server.Tests;
 
-public class ReviewsControllerTests : IClassFixture<CustomWebApplicationFactory>
-{
-    private readonly CustomWebApplicationFactory _factory;
+[CollectionDefinition("ReviewsController")]
+public class ReviewsControllerCollection : ICollectionFixture<RelaxedRateLimitWebApplicationFactory>;
 
-    public ReviewsControllerTests(CustomWebApplicationFactory factory)
+/// <summary>Run sequentially so shared InMemory DB is not corrupted by parallel clear/seed.</summary>
+[Collection("ReviewsController")]
+public class ReviewsControllerTests
+{
+    private readonly RelaxedRateLimitWebApplicationFactory _factory;
+
+    public ReviewsControllerTests(RelaxedRateLimitWebApplicationFactory factory)
     {
         _factory = factory;
     }
